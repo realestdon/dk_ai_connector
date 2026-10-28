@@ -1,0 +1,19 @@
+# Python bytecode and cache directories
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python environments
+.venv/
+venv/
+env/
+
+# Temporary and backup files
+*.bak
+*.backup
+*.before_*
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store

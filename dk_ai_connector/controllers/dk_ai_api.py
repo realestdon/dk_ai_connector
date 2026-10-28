@@ -10,6 +10,26 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 # Models the connector may read. Everything else is refused.
+OPTIONAL_MODEL_MODULES = {
+    "sale.order": ("sale_management", "Sales"),
+    "sale.order.line": ("sale_management", "Sales"),
+    "crm.lead": ("crm", "CRM"),
+    "purchase.order": ("purchase", "Purchase"),
+    "purchase.order.line": ("purchase", "Purchase"),
+    "account.account": ("account", "Accounting"),
+    "account.account.tag": ("account", "Accounting"),
+    "account.journal": ("account", "Accounting"),
+    "account.move": ("account", "Accounting"),
+    "account.move.line": ("account", "Accounting"),
+    "account.tax": ("account", "Accounting"),
+    "account.partial.reconcile": ("account", "Accounting"),
+    "stock.location": ("stock", "Inventory"),
+    "stock.move": ("stock", "Inventory"),
+    "stock.quant": ("stock", "Inventory"),
+    "stock.valuation.layer": ("stock", "Inventory"),
+    "mail.activity": ("mail", "Activities"),
+}
+
 ALLOWED_MODELS = {
     "ir.module.module",
     "account.account",
@@ -123,7 +143,7 @@ class DkAiApiController(http.Controller):
 
     @http.route(
         "/api/dk-ai/read",
-        type="json",
+        type="jsonrpc",
         auth="none",
         methods=["POST"],
         csrf=False,
@@ -149,6 +169,10 @@ class DkAiApiController(http.Controller):
             return {
                 "error": "Model is not allowed",
             }
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
 
         if not isinstance(ids, list) or not ids:
             return {
@@ -190,7 +214,7 @@ class DkAiApiController(http.Controller):
 
     @http.route(
         "/api/dk-ai/read-group",
-        type="json",
+        type="jsonrpc",
         auth="none",
         methods=["POST"],
         csrf=False,
@@ -227,6 +251,10 @@ class DkAiApiController(http.Controller):
             return {
                 "error": "Model is not allowed",
             }
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
 
         try:
             offset = max(int(offset or 0), 0)
@@ -271,7 +299,7 @@ class DkAiApiController(http.Controller):
 
     @http.route(
         "/api/dk-ai/search-count",
-        type="json",
+        type="jsonrpc",
         auth="none",
         methods=["POST"],
         csrf=False,
@@ -298,6 +326,10 @@ class DkAiApiController(http.Controller):
                 "error": "Model is not allowed",
             }
 
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
+
         try:
             scoped_domain = self._apply_company_scope(
                 env,
@@ -320,6 +352,54 @@ class DkAiApiController(http.Controller):
             "connection_id": connection.id,
             "model": model,
             "count": count,
+        }
+
+    def _model_availability_error(self, env, model):
+        """Return an actionable error if an allowed model is unavailable."""
+        if model in env.registry.models:
+            return None
+
+        module_info = OPTIONAL_MODEL_MODULES.get(model)
+        module_name, app_name = module_info or (None, None)
+
+        if module_name:
+            module = env["ir.module.module"].sudo().search(
+                [("name", "=", module_name)],
+                limit=1,
+            )
+
+            if not module or module.state != "installed":
+                return {
+                    "error": (
+                        f"The {app_name} application is not installed "
+                        "in the connected Odoo database."
+                    ),
+                    "code": "ODOO_MODULE_NOT_INSTALLED",
+                    "message": (
+                        f"The {app_name} application is not installed "
+                        "in the connected Odoo database."
+                    ),
+                    "model": model,
+                    "module": module_name,
+                    "action": (
+                        f"Install the {app_name} application in Odoo, "
+                        "then retry."
+                    ),
+                }
+
+        return {
+            "error": f"The Odoo model '{model}' is unavailable.",
+            "code": "ODOO_MODEL_UNAVAILABLE",
+            "message": (
+                f"The Odoo model '{model}' is unavailable even though "
+                "its expected application may be installed."
+            ),
+            "model": model,
+            "module": module_name,
+            "action": (
+                "Verify the installed Odoo applications and restart or "
+                "upgrade the relevant addon if necessary."
+            ),
         }
 
     def _apply_company_scope(self, env, model, domain, company_ids):
@@ -386,7 +466,7 @@ class DkAiApiController(http.Controller):
 
     @http.route(
         "/api/dk-ai/search-read",
-        type="json",
+        type="jsonrpc",
         auth="none",
         methods=["POST"],
         csrf=False,
@@ -421,6 +501,10 @@ class DkAiApiController(http.Controller):
             return {
                 "error": "Model is not allowed",
             }
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
 
         try:
             offset = max(int(offset or 0), 0)
