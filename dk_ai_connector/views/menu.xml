@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+
+    <menuitem
+        id="menu_dk_ai_root"
+        name="DK AI"
+        groups="base.group_system"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_dk_ai_configuration"
+        name="Configuration"
+        parent="menu_dk_ai_root"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_dk_ai_connection"
+        name="DK AI Connection"
+        parent="menu_dk_ai_configuration"
+        action="action_dk_ai_connection"
+        sequence="10"
+    />
+
+</odoo>
