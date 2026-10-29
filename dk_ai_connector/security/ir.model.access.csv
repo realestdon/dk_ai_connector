@@ -1,2 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_dk_ai_connection_admin,dk.ai.connection.admin,model_dk_ai_connection,base.group_system,1,1,1,1

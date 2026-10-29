@@ -26,7 +26,7 @@ A DK AI Platform server is required to use this module.
     "depends": ["base"],
     "external_dependencies": {"python": ["requests"]},
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/dk_ai_connection_views.xml",
         "views/menu.xml",
     ],

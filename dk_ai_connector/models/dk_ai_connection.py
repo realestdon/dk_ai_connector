@@ -126,7 +126,7 @@ class DkAiConnection(models.Model):
                     "pairing_code": pairing_code,
                     "odoo_url": self.env["ir.config_parameter"]
                     .sudo()
-                    .get_param("web.base.url"),
+                    .get_str("web.base.url", default=""),
                     "database": self.env.cr.dbname,
                     "instance_uid": instance_uid,
                 },
@@ -315,16 +315,17 @@ class DkAiConnection(models.Model):
     def _get_instance_uid(self):
         ICP = self.env["ir.config_parameter"].sudo()
 
-        instance_uid = ICP.get_param(
-            "dk_ai_connector.instance_uid"
+        instance_uid = ICP.get_str(
+            "dk_ai_connector.instance_uid",
+            default="",
         )
 
         if not instance_uid:
             instance_uid = secrets.token_hex(16)
-
-            ICP.set_param(
+            ICP.set_str(
                 "dk_ai_connector.instance_uid",
                 instance_uid,
             )
 
         return instance_uid
+
