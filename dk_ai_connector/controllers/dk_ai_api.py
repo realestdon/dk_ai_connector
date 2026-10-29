@@ -371,9 +371,9 @@ class DkAiApiController(http.Controller):
 
             if not module or module.state != "installed":
                 message = (
-                    f"The {app_name} application is not installed "
+                    "The {} application is not installed "
                     "in the connected Odoo database."
-                )
+                ).format(app_name)
                 return {
                     "error": message,
                     "code": "ODOO_MODULE_NOT_INSTALLED",
@@ -381,18 +381,18 @@ class DkAiApiController(http.Controller):
                     "model": model,
                     "module": module_name,
                     "action": (
-                        f"Install the {app_name} application in Odoo, "
+                        "Install the {} application in Odoo, "
                         "then retry."
-                    ),
+                    ).format(app_name),
                 }
 
         return {
-            "error": f"The Odoo model '{model}' is unavailable.",
+            "error": "The Odoo model '{}' is unavailable.".format(model),
             "code": "ODOO_MODEL_UNAVAILABLE",
             "message": (
-                f"The Odoo model '{model}' is unavailable even though "
+                "The Odoo model '{}' is unavailable even though "
                 "its expected application may be installed."
-            ),
+            ).format(model),
             "model": model,
             "module": module_name,
             "action": (

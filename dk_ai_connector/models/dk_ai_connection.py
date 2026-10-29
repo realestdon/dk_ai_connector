@@ -1,10 +1,15 @@
-import secrets
+import binascii
+import os
 import requests
 
 from datetime import timedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+
+def _secure_token_hex(byte_count):
+    return binascii.hexlify(os.urandom(byte_count)).decode('ascii')
 
 
 class DkAiConnection(models.Model):
@@ -96,10 +101,10 @@ class DkAiConnection(models.Model):
         Generate a high-entropy human-readable pairing code.
         """
 
-        first = secrets.token_hex(4).upper()
-        second = secrets.token_hex(4).upper()
+        first = _secure_token_hex(4).upper()
+        second = _secure_token_hex(4).upper()
 
-        return f"DKAI-{first}-{second}"
+        return "DKAI-{}-{}".format(first, second)
 
     def action_generate_pairing_code(self):
         self.ensure_one()
@@ -111,7 +116,10 @@ class DkAiConnection(models.Model):
 
         pairing_code = self._generate_pairing_code()
 
-        expires_at = fields.Datetime.now() + timedelta(minutes=10)
+        expires_at = fields.Datetime.to_string(
+            fields.Datetime.from_string(fields.Datetime.now())
+            + timedelta(minutes=10)
+        )
 
         # A stable identifier for this Odoo installation.
         instance_uid = self._get_instance_uid()
@@ -121,7 +129,7 @@ class DkAiConnection(models.Model):
 
         try:
             response = requests.post(
-                f"{self.dk_ai_url.rstrip('/')}/api/odoo/pairing/register",
+                "{}/api/odoo/pairing/register".format(self.dk_ai_url.rstrip('/')),
                 json={
                     "pairing_code": pairing_code,
                     "odoo_url": self.env["ir.config_parameter"]
@@ -181,7 +189,7 @@ class DkAiConnection(models.Model):
 
         try:
             response = requests.post(
-                f"{self.dk_ai_url.rstrip('/')}/api/odoo/pairing/exchange",
+                "{}/api/odoo/pairing/exchange".format(self.dk_ai_url.rstrip('/')),
                 json={
                     "pairing_code": self.pairing_code,
                     "instance_uid": instance_uid,
@@ -243,7 +251,7 @@ class DkAiConnection(models.Model):
 
         try:
             response = requests.get(
-                f"{self.dk_ai_url.rstrip('/')}/health",
+                "{}/health".format(self.dk_ai_url.rstrip('/')),
                 timeout=10,
             )
 
@@ -272,9 +280,9 @@ class DkAiConnection(models.Model):
         if self.connector_token and self.dk_ai_url:
             try:
                 response = requests.post(
-                    f"{self.dk_ai_url.rstrip('/')}/api/odoo/pairing/revoke",
+                    "{}/api/odoo/pairing/revoke".format(self.dk_ai_url.rstrip('/')),
                     headers={
-                        "Authorization": f"Bearer {self.connector_token}",
+                        "Authorization": "Bearer {}".format(self.connector_token),
                     },
                     timeout=15,
                 )
@@ -320,7 +328,7 @@ class DkAiConnection(models.Model):
         )
 
         if not instance_uid:
-            instance_uid = secrets.token_hex(16)
+            instance_uid = _secure_token_hex(16)
 
             ICP.set_param(
                 "dk_ai_connector.instance_uid",
