@@ -465,6 +465,71 @@ class DkAiApiController(http.Controller):
         return company_domain + domain
 
     @http.route(
+        "/api/dk-ai/fields-get",
+        type="jsonrpc",
+        auth="none",
+        methods=["POST"],
+        csrf=False,
+    )
+    def fields_get(
+        self,
+        model=None,
+        allfields=None,
+        attributes=None,
+        company_ids=None,
+    ):
+        connection, env = self._get_connector_env(
+            company_ids=company_ids,
+        )
+
+        if not connection:
+            return {"error": "Unauthorized connector"}
+
+        if not model:
+            return {"error": "Model is required"}
+
+        if model not in ALLOWED_MODELS:
+            return {"error": "Model is not allowed"}
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
+
+        if allfields is not None and (
+            not isinstance(allfields, list)
+            or not all(isinstance(field, str) for field in allfields)
+        ):
+            return {"error": "allfields must be a list of field names"}
+
+        if attributes is not None and (
+            not isinstance(attributes, list)
+            or not all(isinstance(attribute, str) for attribute in attributes)
+        ):
+            return {"error": "attributes must be a list of strings"}
+
+        try:
+            fields_metadata = env[model].sudo().fields_get(
+                allfields=allfields,
+                attributes=attributes,
+            )
+        except Exception as exc:
+            _logger.warning(
+                "DK AI fields_get failed for model %s: %s",
+                model,
+                exc,
+            )
+            return {
+                "error": "Field metadata could not be retrieved.",
+            }
+
+        return {
+            "success": True,
+            "connection_id": connection.id,
+            "model": model,
+            "fields": fields_metadata,
+        }
+
+    @http.route(
         "/api/dk-ai/search-read",
         type="jsonrpc",
         auth="none",
