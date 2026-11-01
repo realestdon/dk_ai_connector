@@ -286,7 +286,7 @@ class DkAiApiController(http.Controller):
                 lazy=bool(lazy),
             )
         except Exception as exc:
-            _logger.warning("DK AI query failed: %s", exc)
+            _logger.warning("DK AI read_group failed: %s", exc)
             return {
                 "error": "The query could not be completed.",
             }
@@ -333,18 +333,138 @@ class DkAiApiController(http.Controller):
             return availability_error
 
         try:
+            query_model = model
+            query_domain = domain or []
+
+            # Odoo 12 stores customer and vendor invoices in
+            # account.invoice rather than account.move.
+            # Keep account.move for ordinary journal-entry queries.
+            if model == "account.move":
+
+                def contains_move_type(node):
+                    if isinstance(node, (tuple, list)):
+                        if (
+                            len(node) >= 3
+                            and node[0] == "move_type"
+                        ):
+                            return True
+
+                        return any(
+                            contains_move_type(item)
+                            for item in node
+                        )
+
+                    return False
+
+                if contains_move_type(query_domain):
+                    query_model = "account.invoice"
+
+                    field_mapping = {
+                        "move_type": "type",
+                        "invoice_date": "date_invoice",
+                        "invoice_date_due": "date_due",
+                        "amount_residual": "residual",
+                    }
+
+                    def map_invoice_domain(node):
+                        if isinstance(node, (tuple, list)):
+                            # Handle individual domain leaves.
+                            if (
+                                len(node) >= 3
+                                and isinstance(node[0], str)
+                                and isinstance(node[1], str)
+                                and node[0] not in ("&", "|", "!")
+                            ):
+                                field_name = node[0]
+                                operator = node[1]
+                                value = node[2]
+
+                                if field_name == "payment_state":
+                                    statuses = (
+                                        value
+                                        if isinstance(value, (tuple, list))
+                                        else [value]
+                                    )
+
+                                    if (
+                                        operator == "in"
+                                        and set(statuses) == {
+                                            "not_paid", "partial"
+                                        }
+                                    ):
+                                        return [
+                                            "&",
+                                            ("state", "=", "open"),
+                                            ("residual", ">", 0),
+                                        ], True
+
+                                    if operator == "=" and value == "paid":
+                                        return [
+                                            "&",
+                                            ("state", "=", "open"),
+                                            ("residual", "=", 0),
+                                        ], True
+
+                                    raise ValueError(
+                                        "Unsupported Odoo 12 payment_state "
+                                        "domain: %s" % (node,)
+                                    )
+
+                                field_mapping = {
+                                    "move_type": "type",
+                                    "invoice_date": "date_invoice",
+                                    "invoice_date_due": "date_due",
+                        "amount_residual": "residual",
+                                }
+
+                                if field_name in field_mapping:
+                                    mapped = list(node)
+                                    mapped[0] = field_mapping[field_name]
+
+                                    return (
+                                        tuple(mapped)
+                                        if isinstance(node, tuple)
+                                        else mapped
+                                    ), False
+
+                                return node, False
+
+                            # Recursively map expressions and flatten
+                            # any expanded domain leaves.
+                            mapped = []
+
+                            for item in node:
+                                mapped_item, is_expansion = (
+                                    map_invoice_domain(item)
+                                )
+
+                                if is_expansion:
+                                    mapped.extend(mapped_item)
+                                else:
+                                    mapped.append(mapped_item)
+
+                            return (
+                                tuple(mapped)
+                                if isinstance(node, tuple)
+                                else mapped
+                            ), False
+
+                        return node, False
+
+                    query_domain, _ = map_invoice_domain(query_domain)
+
             scoped_domain = self._apply_company_scope(
                 env,
-                model,
-                domain,
+                query_model,
+                query_domain,
                 company_ids,
             )
 
-            count = env[model].sudo().search_count(
+            count = env[query_model].sudo().search_count(
                 scoped_domain,
             )
         except Exception as exc:
-            _logger.warning("DK AI query failed: %s", exc)
+            _logger.warning("DK AI search_count failed: %s", exc)
             return {
                 "error": "The query could not be completed.",
             }
@@ -358,6 +478,12 @@ class DkAiApiController(http.Controller):
 
     def _model_availability_error(self, env, model):
         """Return an actionable error if an allowed model is unavailable."""
+
+        # Odoo 12 compatibility:
+        # stock.valuation.layer is handled by the legacy stock.move adapter.
+        if model == "stock.valuation.layer":
+            return None
+
         if model in env.registry.models:
             return None
 
@@ -529,6 +655,141 @@ class DkAiApiController(http.Controller):
             "fields": fields_metadata,
         }
 
+    def _prepare_invoice_compatibility(
+        self, env, model, domain=None, fields=None, order=None
+    ):
+        """Translate modern account.move invoice queries for Odoo 12."""
+
+        if model != "account.move":
+            return model, domain or [], fields or [], order, {}
+
+        invoice_fields = {
+            "move_type": "type",
+            "invoice_date": "date_invoice",
+            "invoice_date_due": "date_due",
+            "amount_residual": "residual",
+        }
+
+        def contains_invoice_field(value):
+            if isinstance(value, (tuple, list)):
+                if (
+                    len(value) >= 3
+                    and isinstance(value[0], str)
+                    and (
+                        value[0] in invoice_fields
+                        or value[0] == "payment_state"
+                    )
+                ):
+                    return True
+                return any(contains_invoice_field(item) for item in value)
+            return False
+
+        if not contains_invoice_field(domain):
+            return model, domain or [], fields or [], order, {}
+
+        def map_domain(node):
+            if isinstance(node, (tuple, list)):
+                if (
+                    len(node) >= 3
+                    and isinstance(node[0], str)
+                    and isinstance(node[1], str)
+                    and node[0] not in ("&", "|", "!")
+                ):
+                    field_name = node[0]
+                    operator = node[1]
+                    value = node[2]
+
+                    if field_name == "payment_state":
+                        statuses = (
+                            value
+                            if isinstance(value, (tuple, list))
+                            else [value]
+                        )
+
+                        if (
+                            operator == "in"
+                            and set(statuses) == {"not_paid", "partial"}
+                        ):
+                            return [
+                                "&",
+                                ("state", "=", "open"),
+                                ("residual", ">", 0),
+                            ], True
+
+                        if operator == "=" and value == "paid":
+                            return [
+                                "&",
+                                ("state", "=", "open"),
+                                ("residual", "=", 0),
+                            ], True
+
+                        raise ValueError(
+                            "Unsupported Odoo 12 payment_state domain: %s"
+                            % (node,)
+                        )
+
+                    mapped = list(node)
+                    mapped[0] = invoice_fields.get(field_name, field_name)
+
+                    return (
+                        tuple(mapped) if isinstance(node, tuple) else mapped
+                    ), False
+
+                mapped = []
+
+                for item in node:
+                    mapped_item, is_expansion = map_domain(item)
+
+                    if is_expansion:
+                        mapped.extend(mapped_item)
+                    else:
+                        mapped.append(mapped_item)
+
+                return (
+                    tuple(mapped) if isinstance(node, tuple) else mapped
+                ), False
+
+            return node, False
+
+        mapped_domain, _ = map_domain(domain or [])
+
+        mapped_fields = []
+        response_field_mapping = {}
+
+        for field_name in fields or []:
+            if field_name == "payment_state":
+                # payment_state is not a stored Odoo 12 invoice field.
+                # Do not request it from account.invoice.
+                continue
+
+            legacy_name = invoice_fields.get(field_name, field_name)
+            mapped_fields.append(legacy_name)
+
+            if legacy_name != field_name:
+                response_field_mapping[legacy_name] = field_name
+
+        mapped_order = order
+
+        if order:
+            order_parts = []
+
+            for part in order.split(","):
+                tokens = part.strip().split()
+
+                if tokens:
+                    tokens[0] = invoice_fields.get(tokens[0], tokens[0])
+                    order_parts.append(" ".join(tokens))
+
+            mapped_order = ", ".join(order_parts)
+
+        return (
+            "account.invoice",
+            mapped_domain,
+            mapped_fields,
+            mapped_order,
+            response_field_mapping,
+        )
+
     @http.route(
         "/api/dk-ai/search-read",
         type="json",
@@ -581,20 +842,39 @@ class DkAiApiController(http.Controller):
         except (TypeError, ValueError):
             limit = 100
 
+        query_model, query_domain, query_fields, query_order, response_mapping = (
+            self._prepare_invoice_compatibility(
+                env,
+                model,
+                domain=domain,
+                fields=fields,
+                order=order,
+            )
+        )
+
         scoped_domain = self._apply_company_scope(
             env,
-            model,
-            domain,
+            query_model,
+            query_domain,
             company_ids,
         )
 
-        records = env[model].sudo().search_read(
+        records = env[query_model].sudo().search_read(
             scoped_domain,
-            fields=fields or [],
+            fields=query_fields,
             offset=offset,
             limit=limit,
-            order=order,
+            order=query_order,
         )
+
+        if response_mapping:
+            records = [
+                {
+                    response_mapping.get(field_name, field_name): value
+                    for field_name, value in record.items()
+                }
+                for record in records
+            ]
 
         return {
             "success": True,
