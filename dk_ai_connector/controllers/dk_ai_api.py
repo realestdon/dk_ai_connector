@@ -464,6 +464,141 @@ class DkAiApiController(http.Controller):
         return company_domain + domain
 
     @http.route(
+        "/api/dk-ai/fields-get",
+        type="json",
+        auth="none",
+        methods=["POST"],
+        csrf=False,
+    )
+    def fields_get(
+        self,
+        model=None,
+        allfields=None,
+        attributes=None,
+        fields=None,
+        company_ids=None,
+    ):
+        """Return metadata for an allowed Odoo model."""
+        connection, env = self._get_connector_env(
+            company_ids=company_ids,
+        )
+
+        if not connection:
+            return {
+                "error": "Unauthorized connector",
+            }
+
+        if not model:
+            return {
+                "error": "Model is required",
+            }
+
+        if model not in SEARCH_READ_MODELS:
+            return {
+                "error": "Model is not allowed",
+            }
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
+
+        # Support both Odoo's native allfields argument and the
+        # simpler "fields" argument used by API clients.
+        if allfields is not None and fields is not None:
+            return {
+                "error": "Specify either allfields or fields, not both",
+            }
+
+        requested_fields = (
+            allfields if allfields is not None else fields
+        )
+
+        if requested_fields is not None:
+            if (
+                not isinstance(requested_fields, list)
+                or not all(
+                    isinstance(field_name, str)
+                    and field_name
+                    for field_name in requested_fields
+                )
+            ):
+                return {
+                    "error": "allfields must be a list of field names",
+                }
+
+            if len(requested_fields) > 500:
+                return {
+                    "error": "Maximum 500 fields per request",
+                }
+
+            if len(requested_fields) != len(set(requested_fields)):
+                return {
+                    "error": "Duplicate field names are not allowed",
+                }
+
+        allowed_attributes = {
+            "string",
+            "help",
+            "type",
+            "selection",
+            "relation",
+            "required",
+            "readonly",
+            "store",
+            "searchable",
+            "translate",
+            "company_dependent",
+            "domain",
+        }
+
+        if attributes is not None:
+            if (
+                not isinstance(attributes, list)
+                or not all(
+                    isinstance(attribute, str)
+                    for attribute in attributes
+                )
+            ):
+                return {
+                    "error": "attributes must be a list of strings",
+                }
+
+            invalid_attributes = (
+                set(attributes) - allowed_attributes
+            )
+
+            if invalid_attributes:
+                return {
+                    "error": "Unsupported field metadata attributes",
+                    "attributes": sorted(invalid_attributes),
+                }
+        else:
+            attributes = sorted(allowed_attributes)
+
+        try:
+            field_definitions = env[model].sudo().fields_get(
+                allfields=requested_fields,
+                attributes=attributes,
+            )
+
+            return {
+                "success": True,
+                "connection_id": connection.id,
+                "model": model,
+                "count": len(field_definitions),
+                "fields": field_definitions,
+            }
+
+        except Exception:
+            _logger.exception(
+                "DK AI fields_get failed for model %s",
+                model,
+            )
+            return {
+                "error": "Could not retrieve model field metadata.",
+            }
+
+    @http.route(
         "/api/dk-ai/search-read",
         type="json",
         auth="none",
