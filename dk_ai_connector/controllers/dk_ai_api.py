@@ -63,25 +63,75 @@ SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity", "account.partial.reconci
 class DkAiApiController(http.Controller):
 
     def _get_connector(self):
+        import hashlib
+
         authorization = request.httprequest.headers.get("Authorization")
 
         if not authorization:
+            _logger.warning(
+                "DK AI authentication failed: Authorization header missing"
+            )
             return None
 
-        scheme, _, token = authorization.partition(" ")
+        scheme, separator, token = authorization.partition(" ")
+        token = token.strip()
 
-        if scheme.lower() != "bearer" or not token:
+        if scheme.lower() != "bearer" or not separator or not token:
+            _logger.warning(
+                "DK AI authentication failed: invalid Bearer authorization"
+            )
             return None
 
-        connection = request.env["dk.ai.connection"].sudo().search(
-            [
-                ("active", "=", True),
-                ("connector_token", "=", token),
-            ],
-            limit=1,
+        incoming_fingerprint = hashlib.sha256(
+            token.encode("utf-8")
+        ).hexdigest()[:12]
+
+        _logger.info(
+            "DK AI incoming token fingerprint=%s, length=%s",
+            incoming_fingerprint,
+            len(token),
         )
 
-        return connection or None
+        active_connections = request.env[
+            "dk.ai.connection"
+        ].sudo().search([
+            ("active", "=", True),
+        ])
+
+        for configured_connection in active_connections:
+            configured_token = (
+                configured_connection.connector_token or ""
+            )
+
+            configured_fingerprint = hashlib.sha256(
+                configured_token.encode("utf-8")
+            ).hexdigest()[:12]
+
+            _logger.info(
+                "DK AI configured token: connection_id=%s, "
+                "fingerprint=%s, length=%s",
+                configured_connection.id,
+                configured_fingerprint,
+                len(configured_token),
+            )
+
+        connection = active_connections.filtered(
+            lambda record: record.connector_token == token
+        )[:1]
+
+        if not connection:
+            _logger.warning(
+                "DK AI authentication failed: incoming token "
+                "does not match any active configured token"
+            )
+            return None
+
+        _logger.info(
+            "DK AI authentication successful: connection_id=%s",
+            connection.id,
+        )
+
+        return connection
 
     def _get_connector_env(self, company_ids=None):
         connection = self._get_connector()
