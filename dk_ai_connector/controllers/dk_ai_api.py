@@ -143,6 +143,71 @@ class DkAiApiController(http.Controller):
         return connection, env
 
     @http.route(
+        "/api/dk-ai/fields-get",
+        type="json",
+        auth="none",
+        methods=["POST"],
+        csrf=False,
+    )
+    def fields_get(
+        self,
+        model=None,
+        fields=None,
+        attributes=None,
+        company_ids=None,
+    ):
+        """Return field metadata for an allowed Odoo model."""
+
+        connection, env = self._get_connector_env(
+            company_ids=company_ids,
+        )
+
+        if not connection:
+            return {
+                "error": "Unauthorized connector",
+            }
+
+        if not model:
+            return {
+                "error": "Model is required",
+            }
+
+        allowed_models = set(ALLOWED_MODELS) | set(SEARCH_READ_MODELS)
+
+        if model not in allowed_models:
+            return {
+                "error": "Model is not allowed",
+            }
+
+        availability_error = self._model_availability_error(env, model)
+        if availability_error:
+            return availability_error
+
+        try:
+            metadata = env[model].sudo().fields_get(
+                allfields=fields or None,
+                attributes=attributes or None,
+            )
+
+            return {
+                "success": True,
+                "connection_id": connection.id,
+                "model": model,
+                "fields": metadata,
+                "count": len(metadata),
+            }
+
+        except Exception as exc:
+            _logger.warning(
+                "DK AI fields_get failed for %s: %s",
+                model,
+                exc,
+            )
+            return {
+                "error": "Field metadata could not be retrieved.",
+            }
+
+    @http.route(
         "/api/dk-ai/read",
         type="json",
         auth="none",
@@ -298,6 +363,112 @@ class DkAiApiController(http.Controller):
             "records": records,
         }
 
+    def _map_invoice_domain_for_odoo13(self, env, model, domain):
+        """
+        Translate modern invoice domain fields to Odoo 13 account.move fields.
+        """
+        if model != "account.move":
+            return domain
+
+        model_fields = env[model]._fields
+
+        field_mapping = {}
+
+        if "move_type" not in model_fields and "type" in model_fields:
+            field_mapping["move_type"] = "type"
+
+        def payment_state_domain(operator, value):
+            """
+            Convert modern payment_state filters into Odoo 13 residual filters.
+            """
+            if operator == "in":
+                states = value if isinstance(value, (list, tuple, set)) else [value]
+
+                if not states:
+                    return [("id", "=", False)]
+
+                if set(states).issubset(set(("not_paid", "partial"))):
+                    return [
+                        "&",
+                        ("state", "=", "posted"),
+                        ("amount_residual", ">", 0),
+                    ]
+
+                if set(states) == set(("paid",)):
+                    return [
+                        "&",
+                        ("state", "=", "posted"),
+                        ("amount_residual", "=", 0),
+                    ]
+
+                if set(states).issubset(
+                    set(("not_paid", "partial", "paid"))
+                ):
+                    return [("state", "=", "posted")]
+
+            if operator == "=":
+                if value == "paid":
+                    return [
+                        "&",
+                        ("state", "=", "posted"),
+                        ("amount_residual", "=", 0),
+                    ]
+
+                if value == "not_paid":
+                    return [
+                        "&",
+                        "&",
+                        ("state", "=", "posted"),
+                        ("amount_residual", "=", "amount_total"),
+                    ]
+
+                if value == "partial":
+                    return [
+                        "&",
+                        "&",
+                        ("state", "=", "posted"),
+                        ("amount_residual", ">", 0),
+                        ("amount_residual", "<", "amount_total"),
+                    ]
+
+            raise ValueError(
+                "Unsupported Odoo 13 payment_state domain: %s %s %s"
+                % (operator, value, "")
+            )
+
+        def map_leaf(node):
+            if not isinstance(node, (tuple, list)):
+                return [node]
+
+            if (
+                len(node) >= 3
+                and isinstance(node[0], str)
+                and node[0] not in ("&", "|", "!")
+            ):
+                field_name, operator, value = node[:3]
+
+                if field_name == "payment_state":
+                    return payment_state_domain(operator, value)
+
+                mapped = list(node)
+                mapped[0] = field_mapping.get(field_name, field_name)
+
+                return [tuple(mapped) if isinstance(node, tuple) else mapped]
+
+            # Preserve prefix operators and flatten expanded leaf domains.
+            result = []
+
+            for item in node:
+                if isinstance(item, (tuple, list)):
+                    result.extend(map_leaf(item))
+                else:
+                    result.append(item)
+
+            return result
+
+        return map_leaf(domain or [])
+
+
     @http.route(
         "/api/dk-ai/search-count",
         type="json",
@@ -332,10 +503,16 @@ class DkAiApiController(http.Controller):
             return availability_error
 
         try:
+            query_domain = self._map_invoice_domain_for_odoo13(
+                env,
+                model,
+                domain or [],
+            )
+
             scoped_domain = self._apply_company_scope(
                 env,
                 model,
-                domain,
+                query_domain,
                 company_ids,
             )
 
@@ -515,20 +692,171 @@ class DkAiApiController(http.Controller):
         except (TypeError, ValueError):
             limit = 100
 
+        query_domain = self._map_invoice_domain_for_odoo13(
+            env,
+            model,
+            domain or [],
+        )
+
+        # Translate modern invoice output fields for Odoo 13.
+        requested_fields = list(fields or [])
+        query_fields = list(requested_fields)
+
+        # Odoo 13 stock.quant compatibility.
+        synthetic_available_quantity = (
+            model == "stock.quant"
+            and "available_quantity" in requested_fields
+        )
+
+        if synthetic_available_quantity:
+            query_fields = [
+                field_name
+                for field_name in query_fields
+                if field_name != "available_quantity"
+            ]
+
+            for field_name in ("quantity", "reserved_quantity"):
+                if field_name not in env[model]._fields:
+                    raise ValueError(
+                        "Cannot calculate available_quantity: "
+                        "stock.quant.%s is unavailable."
+                        % field_name
+                    )
+
+                if field_name not in query_fields:
+                    query_fields.append(field_name)
+        synthetic_payment_state = (
+            model == "account.move"
+            and "payment_state" in requested_fields
+        )
+
+        model_field_names = env[model]._fields
+
+        if model == "account.move":
+            # Odoo 13 uses "type" instead of "move_type".
+            if "move_type" in query_fields and "move_type" not in model_field_names:
+                if "type" not in model_field_names:
+                    raise ValueError(
+                        "Neither move_type nor type exists on account.move."
+                    )
+
+                query_fields.remove("move_type")
+                if "type" not in query_fields:
+                    query_fields.append("type")
+
+            # payment_state is not available on this Odoo 13 model.
+            if synthetic_payment_state:
+                query_fields = [
+                    field_name
+                    for field_name in query_fields
+                    if field_name != "payment_state"
+                ]
+
+                required_fields = (
+                    "state",
+                    "amount_residual",
+                    "amount_total",
+                    "currency_id",
+                )
+
+                for field_name in required_fields:
+                    if field_name not in model_field_names:
+                        raise ValueError(
+                            "Cannot calculate payment_state: "
+                            "account.move.%s is unavailable."
+                            % field_name
+                        )
+
+                    if field_name not in query_fields:
+                        query_fields.append(field_name)
+
         scoped_domain = self._apply_company_scope(
             env,
             model,
-            domain,
+            query_domain,
             company_ids,
         )
 
         records = env[model].sudo().search_read(
             scoped_domain,
-            fields=fields or [],
+            fields=query_fields,
             offset=offset,
             limit=limit,
             order=order,
         )
+
+        if synthetic_available_quantity:
+            for record in records:
+                quantity = record.get("quantity") or 0.0
+                reserved_quantity = record.get("reserved_quantity") or 0.0
+
+                record["available_quantity"] = (
+                    quantity - reserved_quantity
+                )
+
+                if "quantity" not in requested_fields:
+                    record.pop("quantity", None)
+
+                if "reserved_quantity" not in requested_fields:
+                    record.pop("reserved_quantity", None)
+
+        if model == "account.move":
+            for record in records:
+                # Restore the modern field name in the API response.
+                if (
+                    "move_type" in requested_fields
+                    and "move_type" not in record
+                    and "type" in record
+                ):
+                    record["move_type"] = record["type"]
+
+                if synthetic_payment_state:
+                    state = record.get("state")
+                    residual = abs(record.get("amount_residual") or 0.0)
+                    total = abs(record.get("amount_total") or 0.0)
+
+                    currency_value = record.get("currency_id")
+                    currency_id = (
+                        currency_value[0]
+                        if isinstance(currency_value, (list, tuple))
+                        and currency_value
+                        else False
+                    )
+
+                    rounding = 0.01
+                    if currency_id:
+                        currency = env["res.currency"].sudo().browse(
+                            currency_id
+                        )
+                        if currency.exists():
+                            rounding = currency.rounding or rounding
+
+                    if state != "posted":
+                        payment_state = "not_paid"
+                    elif residual <= rounding / 2.0:
+                        payment_state = "paid"
+                    elif residual < total - rounding / 2.0:
+                        payment_state = "partial"
+                    else:
+                        payment_state = "not_paid"
+
+                    record["payment_state"] = payment_state
+
+                    # Remove helper fields unless the caller requested them.
+                    for helper_field in (
+                        "state",
+                        "amount_residual",
+                        "amount_total",
+                        "currency_id",
+                    ):
+                        if helper_field not in requested_fields:
+                            record.pop(helper_field, None)
+
+                if (
+                    "move_type" in requested_fields
+                    and "type" not in requested_fields
+                ):
+                    record.pop("type", None)
 
         return {
             "success": True,
