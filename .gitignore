@@ -1,19 +1,24 @@
-# Python bytecode and cache directories
+# Python compiled files
 __pycache__/
 *.py[cod]
-*$py.class
+*.pyo
+
+# IDE files
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Python environments
-.venv/
 venv/
+.venv/
 env/
 
-# Temporary and backup files
-*.bak
-*.backup
-*.before_*
+# Logs
+*.log
 
-# Editor and operating-system files
-.vscode/
-.idea/
-.DS_Store
+# Temporary files
+*.tmp
+*.bak
