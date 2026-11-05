@@ -57,7 +57,8 @@ ALLOWED_MODELS = {
 }
 
 # search_read additionally exposes activities.
-SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity", "account.partial.reconcile"}
+SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity",
+                                       "account.partial.reconcile"}
 
 
 class DkAiApiController(http.Controller):
@@ -100,7 +101,7 @@ class DkAiApiController(http.Controller):
 
         for configured_connection in active_connections:
             configured_token = (
-                configured_connection.connector_token or ""
+                    configured_connection.connector_token or ""
             )
 
             configured_fingerprint = hashlib.sha256(
@@ -158,12 +159,13 @@ class DkAiApiController(http.Controller):
             # Reject the entire request if any company is inaccessible.
             # Do not silently broaden or change the requested scope.
             if (
-                not requested_company_ids
-                or len(requested_company_ids) != len(set(requested_company_ids))
-                or any(
-                    company_id not in available_company_ids
-                    for company_id in requested_company_ids
-                )
+                    not requested_company_ids
+                    or len(requested_company_ids) != len(
+                set(requested_company_ids))
+                    or any(
+                company_id not in available_company_ids
+                for company_id in requested_company_ids
+            )
             ):
                 return None, None
 
@@ -271,16 +273,16 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def read_group(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        groupby=None,
-        offset=0,
-        limit=100,
-        orderby=None,
-        lazy=True,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            groupby=None,
+            offset=0,
+            limit=100,
+            orderby=None,
+            lazy=True,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -454,9 +456,9 @@ class DkAiApiController(http.Controller):
     def _apply_company_scope(self, env, model, domain, company_ids):
         # Scope queries to the effective companies of the connector user.
         effective_company_ids = (
-            env.context.get("allowed_company_ids")
-            or company_ids
-            or []
+                env.context.get("allowed_company_ids")
+                or company_ids
+                or []
         )
 
         if not effective_company_ids:
@@ -521,14 +523,14 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def search_read(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        offset=0,
-        limit=100,
-        order=None,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            offset=0,
+            limit=100,
+            order=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -608,7 +610,8 @@ class DkAiApiController(http.Controller):
                 content_type="application/json; charset=utf-8",
             )
 
-        if not isinstance(pairing_code, str) or not isinstance(instance_uid, str):
+        if not isinstance(pairing_code, str) or not isinstance(instance_uid,
+                                                               str):
             return response(
                 {"success": False, "message": "Pairing details are required."},
                 400,
@@ -632,13 +635,14 @@ class DkAiApiController(http.Controller):
 
         if not connection:
             return response(
-                {"success": False, "message": "No matching pending pairing was found."},
+                {"success": False,
+                 "message": "No matching pending pairing was found."},
                 404,
             )
 
         if (
-            not connection.pairing_expires_at
-            or connection.pairing_expires_at < fields.Datetime.now()
+                not connection.pairing_expires_at
+                or connection.pairing_expires_at < fields.Datetime.now()
         ):
             return response(
                 {"success": False, "message": "The pairing code has expired."},
@@ -646,11 +650,12 @@ class DkAiApiController(http.Controller):
             )
 
         if not hmac.compare_digest(
-            connection._get_instance_uid(),
-            instance_uid,
+                connection._get_instance_uid(),
+                instance_uid,
         ):
             return response(
-                {"success": False, "message": "The Odoo instance did not match."},
+                {"success": False,
+                 "message": "The Odoo instance did not match."},
                 403,
             )
 
@@ -673,5 +678,5 @@ class DkAiApiController(http.Controller):
                 500,
             )
 
-        return response({"success": True, "message": "Odoo credential exchange completed."})
-
+        return response(
+            {"success": True, "message": "Odoo credential exchange completed."})
