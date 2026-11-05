@@ -57,7 +57,8 @@ ALLOWED_MODELS = {
 }
 
 # search_read additionally exposes activities.
-SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity", "account.partial.reconcile"}
+SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity",
+                                       "account.partial.reconcile"}
 
 
 class DkAiApiController(http.Controller):
@@ -108,12 +109,13 @@ class DkAiApiController(http.Controller):
             # Reject the entire request if any company is inaccessible.
             # Do not silently broaden or change the requested scope.
             if (
-                not requested_company_ids
-                or len(requested_company_ids) != len(set(requested_company_ids))
-                or any(
-                    company_id not in available_company_ids
-                    for company_id in requested_company_ids
-                )
+                    not requested_company_ids
+                    or len(requested_company_ids) != len(
+                set(requested_company_ids))
+                    or any(
+                company_id not in available_company_ids
+                for company_id in requested_company_ids
+            )
             ):
                 return None, None
 
@@ -150,11 +152,11 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def fields_get(
-        self,
-        model=None,
-        fields=None,
-        attributes=None,
-        company_ids=None,
+            self,
+            model=None,
+            fields=None,
+            attributes=None,
+            company_ids=None,
     ):
         """Return field metadata for an allowed Odoo model."""
 
@@ -286,16 +288,16 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def read_group(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        groupby=None,
-        offset=0,
-        limit=100,
-        orderby=None,
-        lazy=True,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            groupby=None,
+            offset=0,
+            limit=100,
+            orderby=None,
+            lazy=True,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -382,7 +384,8 @@ class DkAiApiController(http.Controller):
             Convert modern payment_state filters into Odoo 13 residual filters.
             """
             if operator == "in":
-                states = value if isinstance(value, (list, tuple, set)) else [value]
+                states = value if isinstance(value, (list, tuple, set)) else [
+                    value]
 
                 if not states:
                     return [("id", "=", False)]
@@ -402,7 +405,7 @@ class DkAiApiController(http.Controller):
                     ]
 
                 if set(states).issubset(
-                    set(("not_paid", "partial", "paid"))
+                        set(("not_paid", "partial", "paid"))
                 ):
                     return [("state", "=", "posted")]
 
@@ -441,9 +444,9 @@ class DkAiApiController(http.Controller):
                 return [node]
 
             if (
-                len(node) >= 3
-                and isinstance(node[0], str)
-                and node[0] not in ("&", "|", "!")
+                    len(node) >= 3
+                    and isinstance(node[0], str)
+                    and node[0] not in ("&", "|", "!")
             ):
                 field_name, operator, value = node[:3]
 
@@ -467,7 +470,6 @@ class DkAiApiController(http.Controller):
             return result
 
         return map_leaf(domain or [])
-
 
     @http.route(
         "/api/dk-ai/search-count",
@@ -581,9 +583,9 @@ class DkAiApiController(http.Controller):
     def _apply_company_scope(self, env, model, domain, company_ids):
         # Scope queries to the effective companies of the connector user.
         effective_company_ids = (
-            env.context.get("allowed_company_ids")
-            or company_ids
-            or []
+                env.context.get("allowed_company_ids")
+                or company_ids
+                or []
         )
 
         if not effective_company_ids:
@@ -648,14 +650,14 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def search_read(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        offset=0,
-        limit=100,
-        order=None,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            offset=0,
+            limit=100,
+            order=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -704,8 +706,8 @@ class DkAiApiController(http.Controller):
 
         # Odoo 13 stock.quant compatibility.
         synthetic_available_quantity = (
-            model == "stock.quant"
-            and "available_quantity" in requested_fields
+                model == "stock.quant"
+                and "available_quantity" in requested_fields
         )
 
         if synthetic_available_quantity:
@@ -726,8 +728,8 @@ class DkAiApiController(http.Controller):
                 if field_name not in query_fields:
                     query_fields.append(field_name)
         synthetic_payment_state = (
-            model == "account.move"
-            and "payment_state" in requested_fields
+                model == "account.move"
+                and "payment_state" in requested_fields
         )
 
         model_field_names = env[model]._fields
@@ -791,7 +793,7 @@ class DkAiApiController(http.Controller):
                 reserved_quantity = record.get("reserved_quantity") or 0.0
 
                 record["available_quantity"] = (
-                    quantity - reserved_quantity
+                        quantity - reserved_quantity
                 )
 
                 if "quantity" not in requested_fields:
@@ -804,9 +806,9 @@ class DkAiApiController(http.Controller):
             for record in records:
                 # Restore the modern field name in the API response.
                 if (
-                    "move_type" in requested_fields
-                    and "move_type" not in record
-                    and "type" in record
+                        "move_type" in requested_fields
+                        and "move_type" not in record
+                        and "type" in record
                 ):
                     record["move_type"] = record["type"]
 
@@ -819,7 +821,7 @@ class DkAiApiController(http.Controller):
                     currency_id = (
                         currency_value[0]
                         if isinstance(currency_value, (list, tuple))
-                        and currency_value
+                           and currency_value
                         else False
                     )
 
@@ -844,17 +846,17 @@ class DkAiApiController(http.Controller):
 
                     # Remove helper fields unless the caller requested them.
                     for helper_field in (
-                        "state",
-                        "amount_residual",
-                        "amount_total",
-                        "currency_id",
+                            "state",
+                            "amount_residual",
+                            "amount_total",
+                            "currency_id",
                     ):
                         if helper_field not in requested_fields:
                             record.pop(helper_field, None)
 
                 if (
-                    "move_type" in requested_fields
-                    and "type" not in requested_fields
+                        "move_type" in requested_fields
+                        and "type" not in requested_fields
                 ):
                     record.pop("type", None)
 
@@ -886,7 +888,8 @@ class DkAiApiController(http.Controller):
                 content_type="application/json; charset=utf-8",
             )
 
-        if not isinstance(pairing_code, str) or not isinstance(instance_uid, str):
+        if not isinstance(pairing_code, str) or not isinstance(instance_uid,
+                                                               str):
             return response(
                 {"success": False, "message": "Pairing details are required."},
                 400,
@@ -910,13 +913,14 @@ class DkAiApiController(http.Controller):
 
         if not connection:
             return response(
-                {"success": False, "message": "No matching pending pairing was found."},
+                {"success": False,
+                 "message": "No matching pending pairing was found."},
                 404,
             )
 
         if (
-            not connection.pairing_expires_at
-            or connection.pairing_expires_at < fields.Datetime.now()
+                not connection.pairing_expires_at
+                or connection.pairing_expires_at < fields.Datetime.now()
         ):
             return response(
                 {"success": False, "message": "The pairing code has expired."},
@@ -924,11 +928,12 @@ class DkAiApiController(http.Controller):
             )
 
         if not hmac.compare_digest(
-            connection._get_instance_uid(),
-            instance_uid,
+                connection._get_instance_uid(),
+                instance_uid,
         ):
             return response(
-                {"success": False, "message": "The Odoo instance did not match."},
+                {"success": False,
+                 "message": "The Odoo instance did not match."},
                 403,
             )
 
@@ -951,5 +956,5 @@ class DkAiApiController(http.Controller):
                 500,
             )
 
-        return response({"success": True, "message": "Odoo credential exchange completed."})
-
+        return response(
+            {"success": True, "message": "Odoo credential exchange completed."})
