@@ -1,3 +1,5 @@
+# -*- coding: utf --*-
+# Copyright (C) 2026 Dishon Kadoh (<dishon.kadoh@gmail.com>).
 import hmac
 import json
 import logging
@@ -58,7 +60,8 @@ ALLOWED_MODELS = {
 }
 
 # search_read additionally exposes activities.
-SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity", "account.partial.reconcile"}
+SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity",
+                                       "account.partial.reconcile"}
 
 
 class DkAiApiController(http.Controller):
@@ -109,12 +112,13 @@ class DkAiApiController(http.Controller):
             # Reject the entire request if any company is inaccessible.
             # Do not silently broaden or change the requested scope.
             if (
-                not requested_company_ids
-                or len(requested_company_ids) != len(set(requested_company_ids))
-                or any(
-                    company_id not in available_company_ids
-                    for company_id in requested_company_ids
-                )
+                    not requested_company_ids
+                    or len(requested_company_ids) != len(
+                set(requested_company_ids))
+                    or any(
+                company_id not in available_company_ids
+                for company_id in requested_company_ids
+            )
             ):
                 return None, None
 
@@ -221,16 +225,16 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def read_group(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        groupby=None,
-        offset=0,
-        limit=100,
-        orderby=None,
-        lazy=True,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            groupby=None,
+            offset=0,
+            limit=100,
+            orderby=None,
+            lazy=True,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -285,7 +289,8 @@ class DkAiApiController(http.Controller):
                 lazy=bool(lazy),
             )
         except Exception as exc:
-            _logger.exception("DK AI query failed. Scoped domain: %r", scoped_domain)
+            _logger.exception("DK AI query failed. Scoped domain: %r",
+                              scoped_domain)
             return {
                 "error": "The query could not be completed.",
             }
@@ -362,10 +367,10 @@ class DkAiApiController(http.Controller):
                 return expression
 
             if (
-                len(expression) == 3
-                and isinstance(expression[0], basestring)
-                and expression[0] not in ("&", "|", "!")
-                and isinstance(expression[1], basestring)
+                    len(expression) == 3
+                    and isinstance(expression[0], basestring)
+                    and expression[0] not in ("&", "|", "!")
+                    and isinstance(expression[1], basestring)
             ):
                 field_name, operator, value = expression
 
@@ -434,8 +439,8 @@ class DkAiApiController(http.Controller):
         def translate(expression):
             if isinstance(expression, tuple):
                 if (
-                    len(expression) == 3
-                    and isinstance(expression[0], basestring)
+                        len(expression) == 3
+                        and isinstance(expression[0], basestring)
                 ):
                     return (
                         self._map_legacy_crm_field(expression[0]),
@@ -446,10 +451,10 @@ class DkAiApiController(http.Controller):
 
             if isinstance(expression, list):
                 if (
-                    len(expression) == 3
-                    and isinstance(expression[0], basestring)
-                    and expression[0] not in ("&", "|", "!")
-                    and isinstance(expression[1], basestring)
+                        len(expression) == 3
+                        and isinstance(expression[0], basestring)
+                        and expression[0] not in ("&", "|", "!")
+                        and isinstance(expression[1], basestring)
                 ):
                     return [
                         self._map_legacy_crm_field(expression[0]),
@@ -529,10 +534,10 @@ class DkAiApiController(http.Controller):
                 return expression
 
             if (
-                len(expression) == 3
-                and isinstance(expression[0], basestring)
-                and expression[0] not in ("&", "|", "!")
-                and isinstance(expression[1], basestring)
+                    len(expression) == 3
+                    and isinstance(expression[0], basestring)
+                    and expression[0] not in ("&", "|", "!")
+                    and isinstance(expression[1], basestring)
             ):
                 return translate_leaf(
                     expression[0],
@@ -655,10 +660,10 @@ class DkAiApiController(http.Controller):
 
             # A domain leaf.
             if (
-                len(expression) == 3
-                and isinstance(expression[0], basestring)
-                and expression[0] not in ("&", "|", "!")
-                and isinstance(expression[1], basestring)
+                    len(expression) == 3
+                    and isinstance(expression[0], basestring)
+                    and expression[0] not in ("&", "|", "!")
+                    and isinstance(expression[1], basestring)
             ):
                 return translate_leaf(
                     expression[0],
@@ -687,16 +692,15 @@ class DkAiApiController(http.Controller):
 
         return "account.invoice", translated
 
-
     def _legacy_valuation_adapter(
-        self,
-        env,
-        domain=None,
-        fields=None,
-        offset=0,
-        limit=100,
-        order=None,
-        company_ids=None,
+            self,
+            env,
+            domain=None,
+            fields=None,
+            offset=0,
+            limit=100,
+            order=None,
+            company_ids=None,
     ):
         """
         Odoo 11 compatibility adapter for modern stock.valuation.layer.
@@ -785,8 +789,8 @@ class DkAiApiController(http.Controller):
             for item in items or []:
                 if isinstance(item, (list, tuple)):
                     if (
-                        len(item) == 3
-                        and isinstance(item[0], basestring)
+                            len(item) == 3
+                            and isinstance(item[0], basestring)
                     ):
                         field_name, operator, value = item
 
@@ -832,8 +836,8 @@ class DkAiApiController(http.Controller):
 
         # Every candidate must be completed before valuation is exposed.
         translated_domain = [
-            ("state", "=", "done"),
-        ] + translated_domain
+                                ("state", "=", "done"),
+                            ] + translated_domain
 
         try:
             scoped_domain = self._apply_company_scope(
@@ -923,12 +927,12 @@ class DkAiApiController(http.Controller):
 
                     if is_in:
                         qualifies = (
-                            not source_valued and destination_valued
+                                not source_valued and destination_valued
                         )
                         sign = 1.0
                     else:
                         qualifies = (
-                            source_valued and not destination_valued
+                                source_valued and not destination_valued
                         )
                         sign = -1.0
 
@@ -1017,7 +1021,7 @@ class DkAiApiController(http.Controller):
 
                     elif field_name == "create_date":
                         values["create_date"] = (
-                            move.create_date or False
+                                move.create_date or False
                         )
 
                 response_records.append(values)
@@ -1135,7 +1139,8 @@ class DkAiApiController(http.Controller):
                 scoped_domain,
             )
         except Exception as exc:
-            _logger.exception("DK AI query failed. Scoped domain: %r", scoped_domain)
+            _logger.exception("DK AI query failed. Scoped domain: %r",
+                              scoped_domain)
             return {
                 "error": "The query could not be completed.",
             }
@@ -1196,9 +1201,9 @@ class DkAiApiController(http.Controller):
     def _apply_company_scope(self, env, model, domain, company_ids):
         # Scope queries to the effective companies of the connector user.
         effective_company_ids = (
-            env.context.get("allowed_company_ids")
-            or company_ids
-            or []
+                env.context.get("allowed_company_ids")
+                or company_ids
+                or []
         )
 
         if not effective_company_ids:
@@ -1221,7 +1226,7 @@ class DkAiApiController(http.Controller):
         # Do not include company_id=False records in their results.
         strict_company_models = {
             "account.move",
-        "account.invoice",
+            "account.invoice",
             "account.move.line",
             "sale.order",
             "sale.order.line",
@@ -1349,11 +1354,11 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def fields_get(
-        self,
-        model=None,
-        allfields=None,
-        attributes=None,
-        company_ids=None,
+            self,
+            model=None,
+            allfields=None,
+            attributes=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -1367,18 +1372,18 @@ class DkAiApiController(http.Controller):
 
         # Validate requested field names.
         if allfields is not None and (
-            not isinstance(allfields, list)
-            or not all(isinstance(field, basestring) for field in allfields)
+                not isinstance(allfields, list)
+                or not all(isinstance(field, basestring) for field in allfields)
         ):
             return {"error": "allfields must be a list of field names"}
 
         # Validate requested metadata attributes.
         if attributes is not None and (
-            not isinstance(attributes, list)
-            or not all(
-                isinstance(attribute, basestring)
-                for attribute in attributes
-            )
+                not isinstance(attributes, list)
+                or not all(
+            isinstance(attribute, basestring)
+            for attribute in attributes
+        )
         ):
             return {"error": "attributes must be a list of strings"}
 
@@ -1405,14 +1410,15 @@ class DkAiApiController(http.Controller):
             return availability_error
 
         if allfields is not None and (
-            not isinstance(allfields, list)
-            or not all(isinstance(field, basestring) for field in allfields)
+                not isinstance(allfields, list)
+                or not all(isinstance(field, basestring) for field in allfields)
         ):
             return {"error": "allfields must be a list of field names"}
 
         if attributes is not None and (
-            not isinstance(attributes, list)
-            or not all(isinstance(attribute, basestring) for attribute in attributes)
+                not isinstance(attributes, list)
+                or not all(
+            isinstance(attribute, basestring) for attribute in attributes)
         ):
             return {"error": "attributes must be a list of strings"}
 
@@ -1446,14 +1452,14 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def search_read(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        offset=0,
-        limit=100,
-        order=None,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            offset=0,
+            limit=100,
+            order=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -1601,7 +1607,7 @@ class DkAiApiController(http.Controller):
         if model == "stock.quant" and fields:
             quant_original_fields = list(fields)
             include_quant_available_quantity = (
-                "available_quantity" in fields
+                    "available_quantity" in fields
             )
 
             fields = [
@@ -1661,9 +1667,9 @@ class DkAiApiController(http.Controller):
                 # Fetch helper fields to calculate payment_state.
                 if include_payment_state:
                     for helper_field in (
-                        "state",
-                        "residual",
-                        "amount_total",
+                            "state",
+                            "residual",
+                            "amount_total",
                     ):
                         if helper_field not in fields:
                             fields.append(helper_field)
@@ -1716,13 +1722,12 @@ class DkAiApiController(http.Controller):
                 # Remove fields fetched only for payment_state calculation.
                 if include_payment_state:
                     for helper_field in (
-                        "state",
-                        "residual",
-                        "amount_total",
+                            "state",
+                            "residual",
+                            "amount_total",
                     ):
                         if helper_field not in requested_mapped_fields:
                             record.pop(helper_field, None)
-
 
         # Restore Odoo 18/19 partner rank fields.
         if model == "res.partner" and partner_original_fields:
@@ -1748,8 +1753,8 @@ class DkAiApiController(http.Controller):
 
         # Restore Odoo 18/19 stock.quant available_quantity.
         if (
-            model == "stock.quant"
-            and include_quant_available_quantity
+                model == "stock.quant"
+                and include_quant_available_quantity
         ):
             for record in records:
                 quantity = float(record.get("quantity") or 0.0)
@@ -1784,16 +1789,16 @@ class DkAiApiController(http.Controller):
             )
 
             quant_domain = [
-                ("product_id", "in", product_ids),
-            ] + quant_location_domain
+                               ("product_id", "in", product_ids),
+                           ] + quant_location_domain
 
             # Preserve lot, owner and package restrictions.
             stock_context = env.context
 
             for context_key, quant_field in (
-                ("lot_id", "lot_id"),
-                ("owner_id", "owner_id"),
-                ("package_id", "package_id"),
+                    ("lot_id", "lot_id"),
+                    ("owner_id", "owner_id"),
+                    ("package_id", "package_id"),
             ):
                 context_value = stock_context.get(context_key)
 
@@ -1829,7 +1834,7 @@ class DkAiApiController(http.Controller):
                 )
 
                 free_qty_by_product[product_id] = (
-                    quantity - reserved_quantity
+                        quantity - reserved_quantity
                 )
 
             products = product_model.browse(product_ids)
@@ -1907,7 +1912,8 @@ class DkAiApiController(http.Controller):
                 content_type="application/json; charset=utf-8",
             )
 
-        if not isinstance(pairing_code, str) or not isinstance(instance_uid, str):
+        if not isinstance(pairing_code, str) or not isinstance(instance_uid,
+                                                               str):
             return response(
                 {"success": False, "message": "Pairing details are required."},
                 400,
@@ -1931,13 +1937,14 @@ class DkAiApiController(http.Controller):
 
         if not connection:
             return response(
-                {"success": False, "message": "No matching pending pairing was found."},
+                {"success": False,
+                 "message": "No matching pending pairing was found."},
                 404,
             )
 
         if (
-            not connection.pairing_expires_at
-            or connection.pairing_expires_at < fields.Datetime.now()
+                not connection.pairing_expires_at
+                or connection.pairing_expires_at < fields.Datetime.now()
         ):
             return response(
                 {"success": False, "message": "The pairing code has expired."},
@@ -1945,11 +1952,12 @@ class DkAiApiController(http.Controller):
             )
 
         if not hmac.compare_digest(
-            connection._get_instance_uid(),
-            instance_uid,
+                connection._get_instance_uid(),
+                instance_uid,
         ):
             return response(
-                {"success": False, "message": "The Odoo instance did not match."},
+                {"success": False,
+                 "message": "The Odoo instance did not match."},
                 403,
             )
 
@@ -1972,5 +1980,5 @@ class DkAiApiController(http.Controller):
                 500,
             )
 
-        return response({"success": True, "message": "Odoo credential exchange completed."})
-
+        return response(
+            {"success": True, "message": "Odoo credential exchange completed."})

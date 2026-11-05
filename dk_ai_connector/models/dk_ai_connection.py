@@ -1,3 +1,5 @@
+# -*- coding: utf --*-
+# Copyright (C) 2026 Dishon Kadoh (<dishon.kadoh@gmail.com>).
 import binascii
 import os
 import requests
@@ -129,7 +131,8 @@ class DkAiConnection(models.Model):
 
         try:
             response = requests.post(
-                "{}/api/odoo/pairing/register".format(self.dk_ai_url.rstrip('/')),
+                "{}/api/odoo/pairing/register".format(
+                    self.dk_ai_url.rstrip('/')),
                 json={
                     "pairing_code": pairing_code,
                     "odoo_url": self.env["ir.config_parameter"]
@@ -189,7 +192,8 @@ class DkAiConnection(models.Model):
 
         try:
             response = requests.post(
-                "{}/api/odoo/pairing/exchange".format(self.dk_ai_url.rstrip('/')),
+                "{}/api/odoo/pairing/exchange".format(
+                    self.dk_ai_url.rstrip('/')),
                 json={
                     "pairing_code": self.pairing_code,
                     "instance_uid": instance_uid,
@@ -280,9 +284,11 @@ class DkAiConnection(models.Model):
         if self.connector_token and self.dk_ai_url:
             try:
                 response = requests.post(
-                    "{}/api/odoo/pairing/revoke".format(self.dk_ai_url.rstrip('/')),
+                    "{}/api/odoo/pairing/revoke".format(
+                        self.dk_ai_url.rstrip('/')),
                     headers={
-                        "Authorization": "Bearer {}".format(self.connector_token),
+                        "Authorization": "Bearer {}".format(
+                            self.connector_token),
                     },
                     timeout=15,
                 )
