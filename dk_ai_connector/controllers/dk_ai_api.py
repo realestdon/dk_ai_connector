@@ -57,7 +57,8 @@ ALLOWED_MODELS = {
 }
 
 # search_read additionally exposes activities.
-SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity", "account.partial.reconcile"}
+SEARCH_READ_MODELS = ALLOWED_MODELS | {"mail.activity",
+                                       "account.partial.reconcile"}
 
 
 class DkAiApiController(http.Controller):
@@ -108,12 +109,13 @@ class DkAiApiController(http.Controller):
             # Reject the entire request if any company is inaccessible.
             # Do not silently broaden or change the requested scope.
             if (
-                not requested_company_ids
-                or len(requested_company_ids) != len(set(requested_company_ids))
-                or any(
-                    company_id not in available_company_ids
-                    for company_id in requested_company_ids
-                )
+                    not requested_company_ids
+                    or len(requested_company_ids) != len(
+                set(requested_company_ids))
+                    or any(
+                company_id not in available_company_ids
+                for company_id in requested_company_ids
+            )
             ):
                 return None, None
 
@@ -222,16 +224,16 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def read_group(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        groupby=None,
-        offset=0,
-        limit=100,
-        orderby=None,
-        lazy=True,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            groupby=None,
+            offset=0,
+            limit=100,
+            orderby=None,
+            lazy=True,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -344,8 +346,8 @@ class DkAiApiController(http.Controller):
                 def contains_move_type(node):
                     if isinstance(node, (tuple, list)):
                         if (
-                            len(node) >= 3
-                            and node[0] == "move_type"
+                                len(node) >= 3
+                                and node[0] == "move_type"
                         ):
                             return True
 
@@ -370,10 +372,10 @@ class DkAiApiController(http.Controller):
                         if isinstance(node, (tuple, list)):
                             # Handle individual domain leaves.
                             if (
-                                len(node) >= 3
-                                and isinstance(node[0], str)
-                                and isinstance(node[1], str)
-                                and node[0] not in ("&", "|", "!")
+                                    len(node) >= 3
+                                    and isinstance(node[0], str)
+                                    and isinstance(node[1], str)
+                                    and node[0] not in ("&", "|", "!")
                             ):
                                 field_name = node[0]
                                 operator = node[1]
@@ -387,10 +389,10 @@ class DkAiApiController(http.Controller):
                                     )
 
                                     if (
-                                        operator == "in"
-                                        and set(statuses) == {
-                                            "not_paid", "partial"
-                                        }
+                                            operator == "in"
+                                            and set(statuses) == {
+                                        "not_paid", "partial"
+                                    }
                                     ):
                                         return [
                                             "&",
@@ -414,7 +416,7 @@ class DkAiApiController(http.Controller):
                                     "move_type": "type",
                                     "invoice_date": "date_invoice",
                                     "invoice_date_due": "date_due",
-                        "amount_residual": "residual",
+                                    "amount_residual": "residual",
                                 }
 
                                 if field_name in field_mapping:
@@ -531,9 +533,9 @@ class DkAiApiController(http.Controller):
     def _apply_company_scope(self, env, model, domain, company_ids):
         # Scope queries to the effective companies of the connector user.
         effective_company_ids = (
-            env.context.get("allowed_company_ids")
-            or company_ids
-            or []
+                env.context.get("allowed_company_ids")
+                or company_ids
+                or []
         )
 
         if not effective_company_ids:
@@ -598,11 +600,11 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def fields_get(
-        self,
-        model=None,
-        allfields=None,
-        attributes=None,
-        company_ids=None,
+            self,
+            model=None,
+            allfields=None,
+            attributes=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -622,14 +624,15 @@ class DkAiApiController(http.Controller):
             return availability_error
 
         if allfields is not None and (
-            not isinstance(allfields, list)
-            or not all(isinstance(field, str) for field in allfields)
+                not isinstance(allfields, list)
+                or not all(isinstance(field, str) for field in allfields)
         ):
             return {"error": "allfields must be a list of field names"}
 
         if attributes is not None and (
-            not isinstance(attributes, list)
-            or not all(isinstance(attribute, str) for attribute in attributes)
+                not isinstance(attributes, list)
+                or not all(
+            isinstance(attribute, str) for attribute in attributes)
         ):
             return {"error": "attributes must be a list of strings"}
 
@@ -656,7 +659,7 @@ class DkAiApiController(http.Controller):
         }
 
     def _prepare_invoice_compatibility(
-        self, env, model, domain=None, fields=None, order=None
+            self, env, model, domain=None, fields=None, order=None
     ):
         """Translate modern account.move invoice queries for Odoo 12."""
 
@@ -673,12 +676,12 @@ class DkAiApiController(http.Controller):
         def contains_invoice_field(value):
             if isinstance(value, (tuple, list)):
                 if (
-                    len(value) >= 3
-                    and isinstance(value[0], str)
-                    and (
+                        len(value) >= 3
+                        and isinstance(value[0], str)
+                        and (
                         value[0] in invoice_fields
                         or value[0] == "payment_state"
-                    )
+                )
                 ):
                     return True
                 return any(contains_invoice_field(item) for item in value)
@@ -690,10 +693,10 @@ class DkAiApiController(http.Controller):
         def map_domain(node):
             if isinstance(node, (tuple, list)):
                 if (
-                    len(node) >= 3
-                    and isinstance(node[0], str)
-                    and isinstance(node[1], str)
-                    and node[0] not in ("&", "|", "!")
+                        len(node) >= 3
+                        and isinstance(node[0], str)
+                        and isinstance(node[1], str)
+                        and node[0] not in ("&", "|", "!")
                 ):
                     field_name = node[0]
                     operator = node[1]
@@ -707,8 +710,8 @@ class DkAiApiController(http.Controller):
                         )
 
                         if (
-                            operator == "in"
-                            and set(statuses) == {"not_paid", "partial"}
+                                operator == "in"
+                                and set(statuses) == {"not_paid", "partial"}
                         ):
                             return [
                                 "&",
@@ -798,14 +801,14 @@ class DkAiApiController(http.Controller):
         csrf=False,
     )
     def search_read(
-        self,
-        model=None,
-        domain=None,
-        fields=None,
-        offset=0,
-        limit=100,
-        order=None,
-        company_ids=None,
+            self,
+            model=None,
+            domain=None,
+            fields=None,
+            offset=0,
+            limit=100,
+            order=None,
+            company_ids=None,
     ):
         connection, env = self._get_connector_env(
             company_ids=company_ids,
@@ -904,7 +907,8 @@ class DkAiApiController(http.Controller):
                 content_type="application/json; charset=utf-8",
             )
 
-        if not isinstance(pairing_code, str) or not isinstance(instance_uid, str):
+        if not isinstance(pairing_code, str) or not isinstance(instance_uid,
+                                                               str):
             return response(
                 {"success": False, "message": "Pairing details are required."},
                 400,
@@ -928,13 +932,14 @@ class DkAiApiController(http.Controller):
 
         if not connection:
             return response(
-                {"success": False, "message": "No matching pending pairing was found."},
+                {"success": False,
+                 "message": "No matching pending pairing was found."},
                 404,
             )
 
         if (
-            not connection.pairing_expires_at
-            or connection.pairing_expires_at < fields.Datetime.now()
+                not connection.pairing_expires_at
+                or connection.pairing_expires_at < fields.Datetime.now()
         ):
             return response(
                 {"success": False, "message": "The pairing code has expired."},
@@ -942,11 +947,12 @@ class DkAiApiController(http.Controller):
             )
 
         if not hmac.compare_digest(
-            connection._get_instance_uid(),
-            instance_uid,
+                connection._get_instance_uid(),
+                instance_uid,
         ):
             return response(
-                {"success": False, "message": "The Odoo instance did not match."},
+                {"success": False,
+                 "message": "The Odoo instance did not match."},
                 403,
             )
 
@@ -969,5 +975,5 @@ class DkAiApiController(http.Controller):
                 500,
             )
 
-        return response({"success": True, "message": "Odoo credential exchange completed."})
-
+        return response(
+            {"success": True, "message": "Odoo credential exchange completed."})

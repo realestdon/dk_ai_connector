@@ -12,38 +12,38 @@
                 <header>
 
                     <button
-                        name="action_generate_pairing_code"
-                        type="object"
-                        string="Generate Pairing Code"
-                        class="btn-primary"
+                            name="action_generate_pairing_code"
+                            type="object"
+                            string="Generate Pairing Code"
+                            class="btn-primary"
                     />
 
                     <button
-                        name="action_exchange_pairing"
-                        type="object"
-                        string="Exchange Credential"
-                        class="btn-primary"
-                        attrs="{'invisible': [('status', '!=', 'pending')]}"
+                            name="action_exchange_pairing"
+                            type="object"
+                            string="Exchange Credential"
+                            class="btn-primary"
+                            attrs="{'invisible': [('status', '!=', 'pending')]}"
                     />
 
                     <button
-                        name="action_test_connection"
-                        type="object"
-                        string="Test Connection"
+                            name="action_test_connection"
+                            type="object"
+                            string="Test Connection"
                     />
 
                     <button
-                        name="action_revoke_connection"
-                        type="object"
-                        string="Revoke Connection"
-                        class="btn-secondary"
-                        attrs="{'invisible': [('status', '!=', 'connected')]}"
+                            name="action_revoke_connection"
+                            type="object"
+                            string="Revoke Connection"
+                            class="btn-secondary"
+                            attrs="{'invisible': [('status', '!=', 'connected')]}"
                     />
 
                     <field
-                        name="status"
-                        widget="statusbar"
-                        statusbar_visible="disconnected,pending,connected"
+                            name="status"
+                            widget="statusbar"
+                            statusbar_visible="disconnected,pending,connected"
                     />
 
                 </header>
@@ -69,14 +69,14 @@
                         <group>
 
                             <field
-                                name="pairing_code"
-                                readonly="1"
-                                placeholder="Generate a pairing code"
+                                    name="pairing_code"
+                                    readonly="1"
+                                    placeholder="Generate a pairing code"
                             />
 
                             <field
-                                name="pairing_expires_at"
-                                readonly="1"
+                                    name="pairing_expires_at"
+                                    readonly="1"
                             />
 
                         </group>
@@ -84,18 +84,18 @@
                         <group>
 
                             <field
-                                name="connection_id"
-                                readonly="1"
+                                    name="connection_id"
+                                    readonly="1"
                             />
 
                             <field
-                                name="connected_at"
-                                readonly="1"
+                                    name="connected_at"
+                                    readonly="1"
                             />
 
                             <field
-                                name="connector_token_created_at"
-                                readonly="1"
+                                    name="connector_token_created_at"
+                                    readonly="1"
                             />
 
                         </group>
@@ -107,12 +107,12 @@
                     <group>
 
                         <field
-                            name="last_test_at"
-                            readonly="1"
+                                name="last_test_at"
+                                readonly="1"
                         />
 
                         <field
-                            name="active"
+                                name="active"
                         />
 
                     </group>
