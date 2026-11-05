@@ -328,4 +328,3 @@ class DkAiConnection(models.Model):
             )
 
         return instance_uid
-
